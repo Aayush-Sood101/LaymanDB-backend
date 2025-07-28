@@ -1,6 +1,7 @@
 const natural = require('natural');
 const { OpenAI } = require('openai');
 const logger = require('../utils/logger');
+const { openaiResponseLogger } = require('../utils/logger');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
@@ -213,6 +214,15 @@ Ensure each entity has appropriate primary keys and attributes, relationships ha
     if (!responseContent) {
       throw new Error('Empty response content from OpenAI API');
     }
+    
+    // Log the full OpenAI response to the dedicated log file
+    openaiResponseLogger.info('OpenAI response', {
+      prompt: text,
+      model: model,
+      response: responseContent,
+      usage: response.usage,
+      timestamp: new Date().toISOString()
+    });
     
     try {
       const result = JSON.parse(responseContent);
