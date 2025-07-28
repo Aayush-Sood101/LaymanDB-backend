@@ -8,21 +8,33 @@ if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
-// Create a separate logger for OpenAI responses
+// Create a separate logger for OpenAI responses with enhanced formatting
 const openaiResponseLogger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
     winston.format.timestamp(),
-    winston.format.json()
+    winston.format.json({
+      // This ensures that the JSON response is properly stringified with good formatting
+      space: 2,
+      replacer: (key, value) => {
+        // Special handling for relationship descriptions to ensure proper text display
+        if (key === 'response' && typeof value === 'string') {
+          try {
+            // Try to parse and re-stringify for better formatting
+            return JSON.stringify(JSON.parse(value), null, 2);
+          } catch (e) {
+            // If it's not valid JSON, return as is
+            return value;
+          }
+        }
+        return value;
+      }
+    })
   ),
   defaultMeta: { service: 'openai-responses' },
   transports: [
     new winston.transports.File({ 
       filename: path.join(logsDir, 'openai-responses.log')
-    }),
-    // Also log to combined.log for consolidated view
-    new winston.transports.File({ 
-      filename: path.join(logsDir, 'combined.log')
     })
   ]
 });

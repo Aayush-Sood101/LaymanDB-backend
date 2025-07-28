@@ -215,23 +215,57 @@ Ensure each entity has appropriate primary keys and attributes, relationships ha
       throw new Error('Empty response content from OpenAI API');
     }
     
-    // Log the full OpenAI response to the dedicated log file
-    openaiResponseLogger.info('OpenAI response', {
-      prompt: text,
-      model: model,
-      response: responseContent,
-      usage: response.usage,
-      timestamp: new Date().toISOString()
-    });
-    
     try {
-      const result = JSON.parse(responseContent);
-      logger.info('AI-based entity extraction completed', { 
-        entityCount: result.entities?.length,
-        relationshipCount: result.relationships?.length
+      // Parse the response to ensure it's valid JSON
+      const parsedResponse = JSON.parse(responseContent);
+      
+      // Enhance relationship descriptions to ensure they display correctly
+      if (parsedResponse.relationships && Array.isArray(parsedResponse.relationships)) {
+        parsedResponse.relationships = parsedResponse.relationships.map(relationship => {
+          // Make sure the description is human-readable and properly formatted
+          if (relationship.description) {
+            relationship.description = relationship.description.trim();
+          }
+          // Ensure all components in the diagram are draggable by adding position property if missing
+          if (!relationship.position) {
+            relationship.position = { isDraggable: true };
+          } else {
+            relationship.position.isDraggable = true;
+          }
+          return relationship;
+        });
+      }
+      
+      // Ensure all entities are draggable
+      if (parsedResponse.entities && Array.isArray(parsedResponse.entities)) {
+        parsedResponse.entities = parsedResponse.entities.map(entity => {
+          if (!entity.position) {
+            entity.position = { isDraggable: true, x: Math.random() * 500, y: Math.random() * 400 };
+          } else {
+            entity.position.isDraggable = true;
+          }
+          return entity;
+        });
+      }
+      
+      // Stringify the enhanced response
+      const enhancedResponse = JSON.stringify(parsedResponse, null, 2);
+      
+      // Log the full OpenAI response to the dedicated log file
+      openaiResponseLogger.info('OpenAI response', {
+        prompt: text,
+        model: model,
+        response: enhancedResponse,
+        usage: response.usage,
+        timestamp: new Date().toISOString()
       });
       
-      return result;
+      logger.info('AI-based entity extraction completed', { 
+        entityCount: parsedResponse.entities?.length,
+        relationshipCount: parsedResponse.relationships?.length
+      });
+      
+      return parsedResponse;
     } catch (parseError) {
       logger.error('Error parsing OpenAI response:', parseError);
       throw parseError;
