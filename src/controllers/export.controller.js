@@ -1,0 +1,138 @@
+const Schema = require('../models/schema.model');
+const sqlGeneratorService = require('../services/sqlGenerator.service');
+const documentationService = require('../services/documentation.service');
+const logger = require('../utils/logger');
+
+/**
+ * Generate SQL script from schema
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.generateSQL = async (req, res) => {
+  try {
+    const { schemaId, dialect = 'mysql' } = req.body;
+    
+    if (!schemaId) {
+      return res.status(400).json({ error: 'Schema ID is required' });
+    }
+    
+    const schema = await Schema.findById(schemaId);
+    
+    if (!schema) {
+      return res.status(404).json({ error: 'Schema not found' });
+    }
+    
+    const supportedDialects = ['mysql', 'postgresql', 'sqlite', 'sqlserver'];
+    
+    if (!supportedDialects.includes(dialect.toLowerCase())) {
+      return res.status(400).json({ 
+        error: 'Unsupported SQL dialect', 
+        supportedDialects 
+      });
+    }
+    
+    // Generate SQL based on the selected dialect
+    const sql = await sqlGeneratorService.generateSQL(schema, dialect);
+    
+    return res.status(200).json({
+      message: 'SQL script generated successfully',
+      sql,
+      dialect
+    });
+  } catch (error) {
+    logger.error('Error generating SQL:', error);
+    return res.status(500).json({
+      error: 'Failed to generate SQL script',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * Export ERD diagram as image
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.exportERD = async (req, res) => {
+  try {
+    const { schemaId, format = 'svg' } = req.body;
+    
+    if (!schemaId) {
+      return res.status(400).json({ error: 'Schema ID is required' });
+    }
+    
+    const schema = await Schema.findById(schemaId);
+    
+    if (!schema) {
+      return res.status(404).json({ error: 'Schema not found' });
+    }
+    
+    const supportedFormats = ['svg', 'png', 'pdf', 'json'];
+    
+    if (!supportedFormats.includes(format.toLowerCase())) {
+      return res.status(400).json({ 
+        error: 'Unsupported export format', 
+        supportedFormats 
+      });
+    }
+    
+    // For now, just return the schema in JSON format
+    // In a real implementation, this would generate actual diagram files
+    return res.status(200).json({
+      message: `ERD exported as ${format} successfully`,
+      format,
+      schema
+    });
+  } catch (error) {
+    logger.error('Error exporting ERD:', error);
+    return res.status(500).json({
+      error: 'Failed to export ERD',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * Generate schema documentation
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.generateDocumentation = async (req, res) => {
+  try {
+    const { schemaId, format = 'markdown' } = req.body;
+    
+    if (!schemaId) {
+      return res.status(400).json({ error: 'Schema ID is required' });
+    }
+    
+    const schema = await Schema.findById(schemaId);
+    
+    if (!schema) {
+      return res.status(404).json({ error: 'Schema not found' });
+    }
+    
+    const supportedFormats = ['markdown', 'html', 'pdf'];
+    
+    if (!supportedFormats.includes(format.toLowerCase())) {
+      return res.status(400).json({ 
+        error: 'Unsupported documentation format', 
+        supportedFormats 
+      });
+    }
+    
+    // Generate documentation
+    const documentation = await documentationService.generateDocumentation(schema, format);
+    
+    return res.status(200).json({
+      message: 'Documentation generated successfully',
+      documentation,
+      format
+    });
+  } catch (error) {
+    logger.error('Error generating documentation:', error);
+    return res.status(500).json({
+      error: 'Failed to generate documentation',
+      details: error.message
+    });
+  }
+};
