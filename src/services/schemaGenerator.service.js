@@ -210,7 +210,8 @@ function transformRelationship(relationship, tables) {
   }
   
   return {
-    name: `${sourceTable.name}_${targetTable.name}`,
+    // Use the relationship verb or action if available, otherwise use a default
+    name: relationship.action || relationship.verb || relationship.name || `${relationship.type === 'ONE_TO_MANY' ? 'has' : 'relates_to'}`,
     sourceTable: sourceTable.name,
     targetTable: targetTable.name,
     sourceColumn: sourceColumn.name,
