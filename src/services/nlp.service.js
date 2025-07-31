@@ -109,6 +109,7 @@ async function processWithAI(text) {
 - **Associative Entities**: Represents M:N relationships with attributes (Enrollment connects Student and Course)
 - **Aggregated Entities**: Treating a relationship as an entity (Team = aggregation of Players)
 - **Subtypes/Supertypes**: For inheritance hierarchies (Person → Employee, Customer)
+- **Lookup/Reference Entities**: Normalize attributes with fixed sets of values (Status, PaymentMethod)
 
 ### ATTRIBUTES
 - **Simple**: Atomic values (name, age)
@@ -119,6 +120,17 @@ async function processWithAI(text) {
 - **Domain constraints**: Valid value ranges or patterns
 - **Default values**: Values used when none provided
 
+### DATA TYPE INFERENCE RULES
+- **Text/String Attributes**: names, titles, descriptions, addresses → VARCHAR/TEXT
+- **Numeric Attributes**: 
+  - Integer values: counts, IDs, quantities → INTEGER
+  - Decimal values: prices, rates, measurements → DECIMAL/FLOAT
+- **Date/Time Attributes**: dates, timestamps, durations → DATE/DATETIME/TIMESTAMP
+- **Boolean Attributes**: flags, yes/no values, status indicators → BOOLEAN
+- **Enumerated Values**: gender, status codes, categories → ENUM or reference to lookup tables
+- **Binary Data**: images, files, media → BLOB/BINARY
+- **JSON/Complex Data**: nested structures, flexible schemas → JSON/JSONB
+
 ### KEYS
 - **Primary Keys**: Unique entity identifiers (customer_id)
 - **Natural vs Surrogate**: Natural (existing attribute) vs Surrogate (generated id)
@@ -128,11 +140,18 @@ async function processWithAI(text) {
 
 ## 2. RELATIONSHIP TYPES
 
+### RELATIONSHIP NAMING
+- **Use Verb Phrases**: "places", "manages", "contains", "belongs to"
+- **Direction Matters**: "employs" vs "works for" depending on perspective
+- **Use Present Tense**: "orders" not "ordered"
+- **Be Specific**: "teaches" is better than "has" or "associated with"
+
 ### CARDINALITY PATTERNS
-- **One-to-One (1:1)**: Each entity relates to exactly one other
-- **One-to-Many (1:N)**: One entity relates to multiple others
-- **Many-to-One (N:1)**: Multiple entities relate to one
-- **Many-to-Many (M:N)**: Multiple entities relate to multiple others
+- **One-to-One (1:1)**: Each entity relates to exactly one other (expressed as 1..1 - 1..1)
+- **One-to-Many (1:N)**: One entity relates to multiple others (expressed as 1..1 - 0..*)
+- **Many-to-One (N:1)**: Multiple entities relate to one (expressed as 0..* - 1..1)
+- **Many-to-Many (M:N)**: Multiple entities relate to multiple others (expressed as 0..* - 0..*)
+- **Precise Cardinality**: Use exact ranges like 0..1, 1..1, 1..*, 2..5 when known
 
 ### PARTICIPATION CONSTRAINTS
 - **Total**: Every entity instance participates in relationship (MUST have)
@@ -171,14 +190,24 @@ async function processWithAI(text) {
 - "must", "required", "necessary" → NOT NULL constraints
 - "unique", "identifies", "distinct" → UNIQUE constraint or key
 - "between X and Y" → possible relationship
+- "codes", "types", "statuses" → potential lookup/reference tables
+- "list of", "set of", "collection of" → potential multi-valued attributes
+
+## 6. HANDLING AMBIGUOUS INPUTS
+- **Document Assumptions**: When input is vague, make logical domain-relevant assumptions and explicitly document them in descriptions
+- **Infer Related Entities**: When attributes imply relationships (e.g., "customer_id"), create the necessary related entities
+- **Suggest Normalizations**: Identify repeated values or enumerations that should be separate lookup tables
+- **Provide Alternatives**: When multiple interpretations are valid, choose the most appropriate and explain the choice
+- **Fill Missing Details**: Supply reasonable defaults for missing but necessary information
 
 Format the output as a detailed JSON object with:
 - entities: array of objects with name, type (strong/weak/associative), attributes (array of objects with name, dataType, isPrimaryKey, isForeignKey, isNullable, isMultiValued, isComposite, isDerived, defaultValue, description)
-- relationships: array of objects with sourceEntity, targetEntity, type (ONE_TO_ONE, ONE_TO_MANY, MANY_TO_ONE, MANY_TO_MANY), sourceCardinality, targetCardinality, sourceParticipation (TOTAL/PARTIAL), targetParticipation (TOTAL/PARTIAL), attributes (array of relationship attributes), description
+- relationships: array of objects with name, sourceEntity, targetEntity, type (ONE_TO_ONE, ONE_TO_MANY, MANY_TO_ONE, MANY_TO_MANY), sourceCardinality, targetCardinality, sourceParticipation (TOTAL/PARTIAL), targetParticipation (TOTAL/PARTIAL), cardinality (optional, expressed as "0..1", "1..*", etc.), attributes (array of relationship attributes), description, assumptionsMade (array of assumptions if input was ambiguous)
 - inheritance: array of objects with parent, children (array), type (disjoint/overlapping, total/partial)
 - constraints: array of objects with type (check, unique, etc.), entities, attributes, description
+- lookupTables: array of objects identifying attributes that were normalized into separate lookup entities
 
-Ensure each entity has appropriate primary keys and attributes, relationships have proper cardinality, and all identified constraints are included. Use your database design expertise to infer implicit entities and relationships that may not be explicitly mentioned but are necessary for a complete schema.`
+Ensure each entity has appropriate primary keys and attributes with inferred data types based on context. All relationships should have meaningful names. Make and document logical assumptions when input is ambiguous. Identify attributes that should be normalized into lookup tables. Use your database design expertise to infer implicit entities and relationships that may not be explicitly mentioned but are necessary for a complete schema.`
         },
         {
           role: "user",
