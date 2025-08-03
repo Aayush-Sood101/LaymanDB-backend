@@ -32,15 +32,12 @@ exports.generateSchema = async (extractedData, options = {}) => {
       return transformRelationship(rel, tables);
     }).filter(Boolean);
     
-    // Handle many-to-many relationships by creating junction tables
-    const { updatedTables, junctionRelationships } = createJunctionTables(tables, transformedRelationships);
-    
     // Final schema
     const schema = {
       name,
       description,
-      tables: updatedTables,
-      relationships: [...transformedRelationships, ...junctionRelationships],
+      tables: tables,
+      relationships: transformedRelationships,
       version: 1,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -213,118 +210,35 @@ function transformRelationship(relationship, tables) {
     // Use the relationship verb or action if available, otherwise use a default
     name: relationship.action || relationship.verb || relationship.name || `${relationship.type === 'ONE_TO_MANY' ? 'has' : 'relates_to'}`,
     sourceTable: sourceTable.name,
+    sourceEntity: relationship.sourceEntity, // Preserve original entity name
     targetTable: targetTable.name,
+    targetEntity: relationship.targetEntity, // Preserve original entity name
     sourceColumn: sourceColumn.name,
     targetColumn: relationship.type === 'ONE_TO_MANY' ? `${sourceTable.name.toLowerCase()}_id` : targetColumn.name,
     type: relationship.type,
-    description: relationship.description || `Relationship between ${sourceTable.name} and ${targetTable.name}`
-  };
-}
-
-/**
- * Create junction tables for many-to-many relationships
- * @param {Array} tables - Existing tables
- * @param {Array} relationships - Existing relationships
- * @returns {Object} - Updated tables and junction relationships
- */
-function createJunctionTables(tables, relationships) {
-  const updatedTables = [...tables];
-  const junctionRelationships = [];
-  
-  // Find many-to-many relationships
-  const manyToManyRelationships = relationships.filter(r => r.type === 'MANY_TO_MANY');
-  
-  for (const rel of manyToManyRelationships) {
-    const sourceTable = tables.find(t => t.name === rel.sourceTable);
-    const targetTable = tables.find(t => t.name === rel.targetTable);
-    
-    if (!sourceTable || !targetTable) continue;
-    
-    // Create junction table name
-    const junctionTableName = `${rel.sourceTable}_${rel.targetTable}`;
-    
-    // Create junction table
-    const junctionTable = {
-      name: junctionTableName,
-      columns: [
-        {
-          name: `${rel.sourceTable.toLowerCase()}_id`,
-          dataType: 'INTEGER',
-          isPrimaryKey: true,
-          isForeignKey: true,
-          isNullable: false,
-          isUnique: false,
-          references: {
-            table: rel.sourceTable,
-            column: rel.sourceColumn,
-            onDelete: 'CASCADE',
-            onUpdate: 'CASCADE'
-          },
-          description: `Foreign key reference to ${rel.sourceTable}`
-        },
-        {
-          name: `${rel.targetTable.toLowerCase()}_id`,
-          dataType: 'INTEGER',
-          isPrimaryKey: true,
-          isForeignKey: true,
-          isNullable: false,
-          isUnique: false,
-          references: {
-            table: rel.targetTable,
-            column: rel.targetColumn,
-            onDelete: 'CASCADE',
-            onUpdate: 'CASCADE'
-          },
-          description: `Foreign key reference to ${rel.targetTable}`
-        },
-        {
-          name: 'created_at',
-          dataType: 'TIMESTAMP',
-          isPrimaryKey: false,
-          isForeignKey: false,
-          isNullable: false,
-          defaultValue: 'CURRENT_TIMESTAMP',
-          description: 'Creation timestamp'
-        }
-      ],
-      description: `Junction table for ${rel.sourceTable} and ${rel.targetTable} many-to-many relationship`,
-      position: {
-        x: (sourceTable.position.x + targetTable.position.x) / 2,
-        y: (sourceTable.position.y + targetTable.position.y) / 2 + 100
+    description: relationship.description || `Relationship between ${sourceTable.name} and ${targetTable.name}`,
+    // Preserve cardinality and participation information
+    sourceCardinality: relationship.sourceCardinality || null,
+    targetCardinality: relationship.targetCardinality || null,
+    sourceParticipation: relationship.sourceParticipation || 'PARTIAL',
+    targetParticipation: relationship.targetParticipation || 'PARTIAL',
+    // Include relationship attributes if available
+    attributes: Array.isArray(relationship.attributes) ? relationship.attributes.map(attr => {
+      // Ensure all attributes have a name, defaulting to a generated one if missing
+      if (!attr.name && attr.description) {
+        // If name is missing but description exists, create a name from the description
+        attr.name = attr.description
+          .toLowerCase()
+          .replace(/[^a-z0-9_\s]/g, '')
+          .replace(/\s+/g, '_')
+          .substring(0, 30);
       }
-    };
-    
-    // Add junction table
-    updatedTables.push(junctionTable);
-    
-    // Create relationships to junction table
-    junctionRelationships.push(
-      {
-        name: `${rel.sourceTable}_to_${junctionTableName}`,
-        sourceTable: rel.sourceTable,
-        targetTable: junctionTableName,
-        sourceColumn: rel.sourceColumn,
-        targetColumn: `${rel.sourceTable.toLowerCase()}_id`,
-        type: 'ONE_TO_MANY',
-        junctionTable: junctionTableName,
-        description: `One-to-many relationship from ${rel.sourceTable} to junction table`
-      },
-      {
-        name: `${rel.targetTable}_to_${junctionTableName}`,
-        sourceTable: rel.targetTable,
-        targetTable: junctionTableName,
-        sourceColumn: rel.targetColumn,
-        targetColumn: `${rel.targetTable.toLowerCase()}_id`,
-        type: 'ONE_TO_MANY',
-        junctionTable: junctionTableName,
-        description: `One-to-many relationship from ${rel.targetTable} to junction table`
-      }
-    );
-  }
-  
-  return { 
-    updatedTables, 
-    junctionRelationships
+      
+      return {
+        ...attr,
+        name: attr.name || 'unnamed_attribute'
+      };
+    }) : []
   };
 }
 

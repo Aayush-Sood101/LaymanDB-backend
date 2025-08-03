@@ -106,9 +106,6 @@ async function processWithAI(text) {
 ### ENTITIES
 - **Strong Entities**: Independent existence (Customer, Product)
 - **Weak Entities**: Existence depends on another entity (Order Line depends on Order)
-- **Associative Entities**: Represents M:N relationships with attributes (Enrollment connects Student and Course)
-- **Aggregated Entities**: Treating a relationship as an entity (Team = aggregation of Players)
-- **Subtypes/Supertypes**: For inheritance hierarchies (Person → Employee, Customer)
 - **Lookup/Reference Entities**: Normalize attributes with fixed sets of values (Status, PaymentMethod)
 
 ### ATTRIBUTES
@@ -178,7 +175,6 @@ async function processWithAI(text) {
 - **Indexing Strategy**: Primary keys, foreign keys, search fields
 - **Constraints**: UNIQUE, CHECK, DEFAULT, NOT NULL
 - **Triggers**: For complex integrity rules
-- **Junction Tables**: For M:N relationships with clean attributes
 - **Computed Columns**: For frequently accessed derived data
 
 ## 5. TEXTUAL PATTERN ANALYSIS
@@ -201,7 +197,7 @@ async function processWithAI(text) {
 - **Fill Missing Details**: Supply reasonable defaults for missing but necessary information
 
 Format the output as a detailed JSON object with:
-- entities: array of objects with name, type (strong/weak/associative), attributes (array of objects with name, dataType, isPrimaryKey, isForeignKey, isNullable, isMultiValued, isComposite, isDerived, defaultValue, description)
+- entities: array of objects with name, type (strong/weak), attributes (array of objects with name, dataType, isPrimaryKey, isForeignKey, isNullable, isMultiValued, isComposite, isDerived, defaultValue, description)
 - relationships: array of objects with name, sourceEntity, targetEntity, type (ONE_TO_ONE, ONE_TO_MANY, MANY_TO_ONE, MANY_TO_MANY), sourceCardinality, targetCardinality, sourceParticipation (TOTAL/PARTIAL), targetParticipation (TOTAL/PARTIAL), cardinality (optional, expressed as "0..1", "1..*", etc.), attributes (array of relationship attributes), description, assumptionsMade (array of assumptions if input was ambiguous)
 - inheritance: array of objects with parent, children (array), type (disjoint/overlapping, total/partial)
 - constraints: array of objects with type (check, unique, etc.), entities, attributes, description

@@ -18,6 +18,17 @@ const ColumnSchema = new mongoose.Schema({
   description: { type: String }
 });
 
+// Attribute Schema (for relationship attributes)
+const AttributeSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  dataType: { type: String },
+  isPrimaryKey: { type: Boolean, default: false },
+  isForeignKey: { type: Boolean, default: false },
+  isNullable: { type: Boolean, default: true },
+  isMultiValued: { type: Boolean, default: false },
+  description: { type: String }
+});
+
 // Table Schema
 const TableSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -33,7 +44,9 @@ const TableSchema = new mongoose.Schema({
 const RelationshipSchema = new mongoose.Schema({
   name: { type: String },
   sourceTable: { type: String, required: true },
+  sourceEntity: { type: String },
   targetTable: { type: String, required: true },
+  targetEntity: { type: String },
   sourceColumn: { type: String, required: true },
   targetColumn: { type: String, required: true },
   type: { 
@@ -41,8 +54,17 @@ const RelationshipSchema = new mongoose.Schema({
     enum: ['ONE_TO_ONE', 'ONE_TO_MANY', 'MANY_TO_ONE', 'MANY_TO_MANY'], 
     required: true 
   },
-  junctionTable: { type: String },
-  description: { type: String }
+  attributes: [AttributeSchema],
+  sourceCardinality: { type: String },
+  targetCardinality: { type: String },
+  sourceParticipation: { type: String },
+  targetParticipation: { type: String },
+  description: { type: String },
+  position: { 
+    x: { type: Number },
+    y: { type: Number },
+    isDraggable: { type: Boolean, default: true }
+  }
 });
 
 // Database Schema Model
