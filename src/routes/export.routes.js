@@ -23,4 +23,11 @@ router.post('/erd', exportController.exportERD);
  */
 router.post('/documentation', exportController.generateDocumentation);
 
+/**
+ * @route POST /api/export/mermaid
+ * @description Generate Mermaid ER diagram
+ * @access Public
+ */
+router.post('/mermaid', exportController.generateMermaidERD);
+
 module.exports = router;

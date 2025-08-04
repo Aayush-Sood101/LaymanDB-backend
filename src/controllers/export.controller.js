@@ -1,6 +1,7 @@
 const Schema = require('../models/schema.model');
 const sqlGeneratorService = require('../services/sqlGenerator.service');
 const documentationService = require('../services/documentation.service');
+const mermaidGeneratorService = require('../services/mermaidGenerator.service');
 const logger = require('../utils/logger');
 
 /**
@@ -132,6 +133,41 @@ exports.generateDocumentation = async (req, res) => {
     logger.error('Error generating documentation:', error);
     return res.status(500).json({
       error: 'Failed to generate documentation',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * Generate Mermaid ER diagram from schema
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.generateMermaidERD = async (req, res) => {
+  try {
+    const { schemaId } = req.body;
+    
+    if (!schemaId) {
+      return res.status(400).json({ error: 'Schema ID is required' });
+    }
+    
+    const schema = await Schema.findById(schemaId);
+    
+    if (!schema) {
+      return res.status(404).json({ error: 'Schema not found' });
+    }
+    
+    // Generate Mermaid ER diagram syntax
+    const mermaidSyntax = mermaidGeneratorService.generateMermaidERD(schema);
+    
+    return res.status(200).json({
+      message: 'Mermaid ER diagram generated successfully',
+      mermaidSyntax
+    });
+  } catch (error) {
+    logger.error('Error generating Mermaid ER diagram:', error);
+    return res.status(500).json({
+      error: 'Failed to generate Mermaid ER diagram',
       details: error.message
     });
   }
