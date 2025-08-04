@@ -79,6 +79,10 @@ class MermaidGeneratorService {
       throw new Error('Invalid schema structure');
     }
 
+    // Debug: Log the schema being processed
+    console.log('Generating Mermaid diagram from schema:');
+    console.log(JSON.stringify(schema, null, 2));
+
     let mermaidSyntax = 'erDiagram\n';
     
     // Process all entities (tables)
@@ -119,6 +123,10 @@ class MermaidGeneratorService {
   generateEntityDefinition(table) {
     if (!table || !table.name) return '';
     
+    // Debug: Log the table being processed
+    console.log(`Processing table: ${table.name}`);
+    console.log(JSON.stringify(table, null, 2));
+    
     let entityDef = '';
     
     // Add entity - consistently use lowercase for entity names
@@ -127,25 +135,50 @@ class MermaidGeneratorService {
     // Start entity definition
     entityDef += `    ${sanitizedTableName} {\n`;
     
-    // Add attributes
+    // Create sections for different column types
+    const primaryKeys = [];
+    const foreignKeys = [];
+    const regularAttributes = [];
+    
+    // Collect and categorize columns
     if (table.columns && Array.isArray(table.columns)) {
       table.columns.forEach(column => {
         const dataType = this.mapDataType(column.dataType);
         
-        // Generate the key indicator - this will be the third column
-        let keyIndicator = '';
-        if (column.primaryKey) {
-          keyIndicator = 'PK';
-        } else if (column.foreignKey) {
-          keyIndicator = 'FK';
+        if (column.primaryKey || column.isPrimaryKey) {
+          // Primary keys go to primary keys section
+          primaryKeys.push({ column, dataType });
+        } else if (column.foreignKey || column.isForeignKey) {
+          // Foreign keys go to foreign keys section
+          foreignKeys.push({ column, dataType });
+        } else {
+          // Regular attributes with nullable information
+          const keyIndicator = (column.nullable === false || column.isNullable === false) ? '' : '';
+          regularAttributes.push({ column, dataType, keyIndicator });
         }
-        
-        // Generate the nullable indicator - this will be the fourth column
-        const nullableIndicator = column.nullable ? '' : '';
-        
-        // Format: dataType name keyIndicator nullableIndicator
-        // Make sure to properly align the columns with spaces between them
-        entityDef += `        ${dataType} ${this.sanitizeName(column.name)} ${keyIndicator} ${nullableIndicator}\n`;
+      });
+    }
+    
+    // Add primary key section if we have any
+    if (primaryKeys.length > 0) {
+      primaryKeys.forEach(({ column, dataType }) => {
+        entityDef += `        ${dataType} ${this.sanitizeName(column.name)} PK\n`;
+      });
+      entityDef += '\n';
+    }
+    
+    // Add foreign key section if we have any
+    if (foreignKeys.length > 0) {
+      foreignKeys.forEach(({ column, dataType }) => {
+        entityDef += `        ${dataType} ${this.sanitizeName(column.name)} FK\n`;
+      });
+      entityDef += '\n';
+    }
+    
+    // Add regular attributes
+    if (regularAttributes.length > 0) {
+      regularAttributes.forEach(({ column, dataType, keyIndicator }) => {
+        entityDef += `        ${dataType} ${this.sanitizeName(column.name)} ${keyIndicator}\n`;
       });
     }
     
@@ -170,8 +203,7 @@ class MermaidGeneratorService {
     // Sanitize relationship name to prevent rendering issues
     relationshipName = relationshipName.replace(/"/g, '\\"');  // Escape quotes
     
-    // Make sure to use the exact same case as used in entity definitions
-    // This prevents the common error of mismatched entity names in relationships
+    // Always use lowercase for entity names in relationships to ensure matching
     const sourceEntityLowerCase = sourceEntity.toLowerCase();
     const targetEntityLowerCase = targetEntity.toLowerCase();
     
@@ -194,15 +226,18 @@ class MermaidGeneratorService {
       }
     } else if (relationship.type) {
       // Use relationship type as fallback
-      if (relationship.type === 'one-to-many') {
+      if (relationship.type === 'one-to-many' || relationship.type === 'ONE_TO_MANY') {
         sourceCardinality = '||';
         targetCardinality = 'o{';
-      } else if (relationship.type === 'many-to-one') {
+      } else if (relationship.type === 'many-to-one' || relationship.type === 'MANY_TO_ONE') {
         sourceCardinality = '}o';
         targetCardinality = '||';
-      } else if (relationship.type === 'many-to-many') {
+      } else if (relationship.type === 'many-to-many' || relationship.type === 'MANY_TO_MANY') {
         sourceCardinality = '}o';
         targetCardinality = 'o{';
+      } else if (relationship.type === 'one-to-one' || relationship.type === 'ONE_TO_ONE') {
+        sourceCardinality = '||';
+        targetCardinality = '||';
       }
     }
     
@@ -221,6 +256,14 @@ class MermaidGeneratorService {
     
     // Replace spaces and special characters
     let sanitized = name.replace(/[^\w]/g, '_');
+    
+    // Handle camelCase or PascalCase names by making them lowercase with underscores
+    // Example: DistributionCenter becomes distribution_center
+    if (/[A-Z]/.test(sanitized)) {
+      sanitized = sanitized.replace(/([A-Z])/g, function(match, p1) {
+        return '_' + p1.toLowerCase();
+      }).replace(/^_/, ''); // Remove leading underscore if it exists
+    }
     
     // Handle JavaScript reserved keywords that would cause conflicts in Mermaid
     const reservedKeywords = [
@@ -295,6 +338,10 @@ class MermaidGeneratorService {
       return parts && parts[0] ? parts[0].toLowerCase() : '';
     }).filter(Boolean);
     
+    // Also create a normalized version of entity names (without underscores)
+    // This helps with matching entities like distribution_center vs distributioncenter
+    const normalizedEntityNames = entityNames.map(name => name.replace(/_/g, ''));
+    
     // Check for too many entities (can cause rendering issues)
     if (entityNames.length > 20) {
       result.isValid = false;
@@ -302,7 +349,6 @@ class MermaidGeneratorService {
     }
     
     // Extract relationships - use a more flexible pattern to catch different spacing variations
-    // This helps identify improperly formatted relationships that might cause rendering issues
     const relationshipMatches = formattedSyntax.match(/\s+(\w+)\s+(\|\||}\o|\o\{)\s*--\s*(\|\||}\o|\o\{)\s+(\w+)/g) || [];
     
     // Check for complex layout that might cause rendering issues
@@ -326,14 +372,39 @@ class MermaidGeneratorService {
         }
       }
       
-      if (!entityNames.includes(sourceEntity)) {
+      // Also create normalized versions without underscores
+      const normalizedSource = sourceEntity.replace(/_/g, '');
+      const normalizedTarget = targetEntity.replace(/_/g, '');
+      
+      // Check if either the exact name or the normalized name exists
+      if (!entityNames.includes(sourceEntity) && !normalizedEntityNames.includes(normalizedSource)) {
         result.isValid = false;
         result.errors.push(`Relationship references undefined source entity: ${sourceEntity}`);
+        
+        // Suggest possible entity names that are close matches
+        const possibleMatches = entityNames.filter(name => 
+          name.includes(sourceEntity) || sourceEntity.includes(name) || 
+          name.replace(/_/g, '').includes(normalizedSource) || normalizedSource.includes(name.replace(/_/g, ''))
+        );
+        
+        if (possibleMatches.length > 0) {
+          result.errors.push(`Did you mean one of these? ${possibleMatches.join(', ')}`);
+        }
       }
       
-      if (!entityNames.includes(targetEntity)) {
+      if (!entityNames.includes(targetEntity) && !normalizedEntityNames.includes(normalizedTarget)) {
         result.isValid = false;
         result.errors.push(`Relationship references undefined target entity: ${targetEntity}`);
+        
+        // Suggest possible entity names that are close matches
+        const possibleMatches = entityNames.filter(name => 
+          name.includes(targetEntity) || targetEntity.includes(name) || 
+          name.replace(/_/g, '').includes(normalizedTarget) || normalizedTarget.includes(name.replace(/_/g, ''))
+        );
+        
+        if (possibleMatches.length > 0) {
+          result.errors.push(`Did you mean one of these? ${possibleMatches.join(', ')}`);
+        }
       }
     }
     
@@ -422,8 +493,9 @@ class MermaidGeneratorService {
       
       // Check for malformed attribute lines within entities
       if (openBraces.length > 0) {
-        // Attributes should follow the pattern: type name [PK/FK] [required]
-        const attributeMatch = line.match(/^\s*(\w+)\s+(\w+)(\s+.*)?$/);
+        // Attributes should follow the pattern: type name [PK/FK/required]
+        // Or be a comment line starting with #
+        const attributeMatch = line.match(/^\s*(\w+)\s+(\w+)(\s+.*)?$/) || line.match(/^\s*#\s+.*$/);
         if (line.length > 0 && !attributeMatch && !line.startsWith('%%')) {
           result.isValid = false;
           result.errors.push(`Malformed attribute on line ${i + 1} in entity "${currentEntity}": "${line}"`);

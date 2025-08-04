@@ -157,12 +157,20 @@ exports.generateMermaidERD = async (req, res) => {
       return res.status(404).json({ error: 'Schema not found' });
     }
     
+    // Debug: Log the schema being processed
+    logger.info(`Generating Mermaid ER diagram for schema: ${schema.name} (ID: ${schemaId})`);
+    
     // Generate Mermaid ER diagram syntax
     const mermaidSyntax = mermaidGeneratorService.generateMermaidERD(schema);
     
+    // For debugging, include the actual syntax in the logs
+    logger.info(`Generated Mermaid syntax: ${mermaidSyntax}`);
+    
     return res.status(200).json({
       message: 'Mermaid ER diagram generated successfully',
-      mermaidSyntax
+      mermaidSyntax,
+      schema: schema, // Include the schema in the response for debugging
+      tables: schema.tables // Also include just the tables for easier inspection
     });
   } catch (error) {
     logger.error('Error generating Mermaid ER diagram:', error);
