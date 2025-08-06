@@ -118,21 +118,21 @@ async function processWithAI(text) {
 - **Default values**: Values used when none provided
 
 ### DATA TYPE INFERENCE RULES
-- **Text/String Attributes**: names, titles, descriptions, addresses → VARCHAR/TEXT
+- **Text/String Attributes**: names, titles, descriptions, addresses → VARCHAR(255) or TEXT
 - **Numeric Attributes**: 
   - Integer values: counts, IDs, quantities → INTEGER
-  - Decimal values: prices, rates, measurements → DECIMAL/FLOAT
-- **Date/Time Attributes**: dates, timestamps, durations → DATE/DATETIME/TIMESTAMP
+  - Decimal values: prices, rates, measurements → DECIMAL(10,2)
+- **Date/Time Attributes**: dates, timestamps, durations → TIMESTAMP
 - **Boolean Attributes**: flags, yes/no values, status indicators → BOOLEAN
-- **Enumerated Values**: gender, status codes, categories → ENUM or reference to lookup tables
-- **Binary Data**: images, files, media → BLOB/BINARY
-- **JSON/Complex Data**: nested structures, flexible schemas → JSON/JSONB
+- **Enumerated Values**: gender, status codes, categories → VARCHAR(255) (in lookup tables)
+- **Binary Data**: images, files, media → BLOB (for MySQL) or BYTEA (for PostgreSQL)
+- **JSON/Complex Data**: nested structures, flexible schemas → JSON or JSONB (PostgreSQL)
 
 ### KEYS
-- **Primary Keys**: Unique entity identifiers (customer_id)
-- **Natural vs Surrogate**: Natural (existing attribute) vs Surrogate (generated id)
-- **Candidate Keys**: Alternative unique identifiers
-- **Foreign Keys**: References to other entities
+- **Primary Keys**: Unique entity identifiers (use 'id' for default or entity_id pattern)
+- **Natural vs Surrogate**: Prefer surrogate keys (generated id) for stability
+- **Candidate Keys**: Alternative unique identifiers (set isUnique: true)
+- **Foreign Keys**: References to other entities (follow naming pattern: entityname_id)
 - **Composite Keys**: Multiple attributes forming unique identifier
 
 ## 2. RELATIONSHIP TYPES
@@ -144,66 +144,61 @@ async function processWithAI(text) {
 - **Be Specific**: "teaches" is better than "has" or "associated with"
 
 ### CARDINALITY PATTERNS
-- **One-to-One (1:1)**: Each entity relates to exactly one other (expressed as 1..1 - 1..1)
-- **One-to-Many (1:N)**: One entity relates to multiple others (expressed as 1..1 - 0..*)
-- **Many-to-One (N:1)**: Multiple entities relate to one (expressed as 0..* - 1..1)
-- **Many-to-Many (M:N)**: Multiple entities relate to multiple others (expressed as 0..* - 0..*)
-- **Precise Cardinality**: Use exact ranges like 0..1, 1..1, 1..*, 2..5 when known
+- **One-to-One (1:1)**: Each entity relates to exactly one other (type: ONE_TO_ONE)
+- **One-to-Many (1:N)**: One entity relates to multiple others (type: ONE_TO_MANY)
+- **Many-to-One (N:1)**: Multiple entities relate to one (type: MANY_TO_ONE)
+- **Many-to-Many (M:N)**: Multiple entities relate to multiple others (type: MANY_TO_MANY)
 
 ### PARTICIPATION CONSTRAINTS
-- **Total**: Every entity instance participates in relationship (MUST have)
-- **Partial**: Some entity instances may not participate (MAY have)
+- **Total**: Every entity instance participates in relationship (sourceParticipation: "TOTAL")
+- **Partial**: Some entity instances may not participate (sourceParticipation: "PARTIAL")
 
-### RELATIONSHIP CATEGORIES
-- **Identifying**: Foreign key is part of primary key (weak entity relationships)
-- **Non-identifying**: Foreign key is not part of primary key
-- **Recursive**: Entity relates to itself (Employee → Manager)
-- **Ternary+**: Involves three or more entities
+## 3. SQL DATA TYPE CONSIDERATIONS
+- Use specific SQL data types compatible with MySQL, PostgreSQL, SQLite, and SQL Server:
+  - INTEGER, BIGINT for IDs and numeric values without decimals
+  - DECIMAL(10,2) for monetary values and precise decimals
+  - VARCHAR(255) for most text fields, TEXT for longer content
+  - TIMESTAMP for date/time values
+  - BOOLEAN for true/false values
 
-### SPECIAL RELATIONSHIPS
-- **Aggregation**: "Has-a" relationship, entity contains others
-- **Composition**: Strong form of aggregation, lifetime dependency
-- **Association**: General connection between entities
-- **Generalization/Specialization**: Inheritance hierarchies
+Format the output as a detailed JSON object with these EXACT properties:
 
-## 3. NORMALIZATION PRINCIPLES
-- Apply normalization to avoid redundancy and anomalies
-- Consider 1NF through 3NF as minimum requirements
-- Balance normalization with performance needs
+### entities
+Array of objects with:
+- name: entity name (PascalCase or camelCase)
+- description: brief description of what this entity represents
+- attributes: array of objects with:
+  - name: attribute name (camelCase)
+  - dataType: SQL data type (VARCHAR(255), INTEGER, DECIMAL(10,2), TIMESTAMP, BOOLEAN, TEXT)
+  - isPrimaryKey: boolean (true/false)
+  - isForeignKey: boolean (true/false) 
+  - isNullable: boolean (true/false)
+  - isUnique: boolean (true/false)
+  - defaultValue: default value if any (string)
+  - description: brief description of the attribute
+- position: object with isDraggable set to true
 
-## 4. IMPLEMENTATION CONSIDERATIONS
-- **Indexing Strategy**: Primary keys, foreign keys, search fields
-- **Constraints**: UNIQUE, CHECK, DEFAULT, NOT NULL
-- **Triggers**: For complex integrity rules
-- **Computed Columns**: For frequently accessed derived data
+### relationships
+Array of objects with:
+- name: relationship name (verb or action phrase)
+- sourceEntity: name of the source entity
+- targetEntity: name of the target entity
+- type: one of "ONE_TO_ONE", "ONE_TO_MANY", "MANY_TO_ONE", "MANY_TO_MANY"
+- sourceCardinality: cardinality of source (e.g., "1..1", "0..*")
+- targetCardinality: cardinality of target (e.g., "1..1", "0..*")
+- sourceParticipation: "TOTAL" or "PARTIAL"
+- targetParticipation: "TOTAL" or "PARTIAL"
+- description: description of the relationship
+- attributes: array of relationship attributes (if any) with same structure as entity attributes
+- position: object with isDraggable set to true
 
-## 5. TEXTUAL PATTERN ANALYSIS
-- "has", "contains", "includes" → attributes or 1:N relationships
-- "each", "every", "all" → total participation
-- "some", "may", "can" → partial participation
-- "belongs to", "is part of" → weak entities or M:1 relationships
-- "many", "multiple", "several" → higher cardinality
-- "must", "required", "necessary" → NOT NULL constraints
-- "unique", "identifies", "distinct" → UNIQUE constraint or key
-- "between X and Y" → possible relationship
-- "codes", "types", "statuses" → potential lookup/reference tables
-- "list of", "set of", "collection of" → potential multi-valued attributes
+ALWAYS include the following for EACH entity:
+1. A primary key attribute named 'id' with dataType 'INTEGER' if no natural primary key exists
+2. Standard timestamps: created_at and updated_at with dataType 'TIMESTAMP'
+3. Reasonable descriptions for each entity and attribute
+4. Ensure all entities have properly configured attribute data types
 
-## 6. HANDLING AMBIGUOUS INPUTS
-- **Document Assumptions**: When input is vague, make logical domain-relevant assumptions and explicitly document them in descriptions
-- **Infer Related Entities**: When attributes imply relationships (e.g., "customer_id"), create the necessary related entities
-- **Suggest Normalizations**: Identify repeated values or enumerations that should be separate lookup tables
-- **Provide Alternatives**: When multiple interpretations are valid, choose the most appropriate and explain the choice
-- **Fill Missing Details**: Supply reasonable defaults for missing but necessary information
-
-Format the output as a detailed JSON object with:
-- entities: array of objects with name, type (strong/weak), attributes (array of objects with name, dataType, isPrimaryKey, isForeignKey, isNullable, isMultiValued, isComposite, isDerived, defaultValue, description)
-- relationships: array of objects with name, sourceEntity, targetEntity, type (ONE_TO_ONE, ONE_TO_MANY, MANY_TO_ONE, MANY_TO_MANY), sourceCardinality, targetCardinality, sourceParticipation (TOTAL/PARTIAL), targetParticipation (TOTAL/PARTIAL), cardinality (optional, expressed as "0..1", "1..*", etc.), attributes (array of relationship attributes), description, assumptionsMade (array of assumptions if input was ambiguous)
-- inheritance: array of objects with parent, children (array), type (disjoint/overlapping, total/partial)
-- constraints: array of objects with type (check, unique, etc.), entities, attributes, description
-- lookupTables: array of objects identifying attributes that were normalized into separate lookup entities
-
-Ensure each entity has appropriate primary keys and attributes with inferred data types based on context. All relationships should have meaningful names. Make and document logical assumptions when input is ambiguous. Identify attributes that should be normalized into lookup tables. Use your database design expertise to infer implicit entities and relationships that may not be explicitly mentioned but are necessary for a complete schema.`
+Ensure all relationships have meaningful names and correct cardinality settings. Foreign keys should be properly defined with clear reference to the target entity.`
         },
         {
           role: "user",
