@@ -18,20 +18,52 @@ exports.generateSchema = async (req, res) => {
 
     logger.info('Generating schema from prompt', { prompt });
 
+    // Set a longer timeout for the request (30 seconds)
+    req.setTimeout(30000);
+    
     // Process natural language using NLP service
-    const extractedEntities = await nlpService.extractEntities(prompt);
+    let extractedEntities;
+    try {
+      extractedEntities = await nlpService.extractEntities(prompt);
+    } catch (nlpError) {
+      logger.error('NLP service error:', nlpError);
+      return res.status(500).json({ 
+        error: 'Error in AI processing', 
+        details: nlpError.message,
+        code: 'NLP_ERROR'
+      });
+    }
     
     // Generate schema from extracted entities
-    const schema = await schemaGeneratorService.generateSchema(extractedEntities, { name, description });
+    let schema;
+    try {
+      schema = await schemaGeneratorService.generateSchema(extractedEntities, { name, description });
+    } catch (schemaError) {
+      logger.error('Schema generation error:', schemaError);
+      return res.status(500).json({ 
+        error: 'Error generating schema structure', 
+        details: schemaError.message,
+        code: 'SCHEMA_GEN_ERROR'
+      });
+    }
     
     // Save schema to database
-    const newSchema = new Schema(schema);
-    await newSchema.save();
-    
-    return res.status(201).json({ 
-      message: 'Schema generated successfully', 
-      schema: newSchema 
-    });
+    try {
+      const newSchema = new Schema(schema);
+      await newSchema.save();
+      
+      return res.status(201).json({ 
+        message: 'Schema generated successfully', 
+        schema: newSchema 
+      });
+    } catch (dbError) {
+      logger.error('Database error saving schema:', dbError);
+      return res.status(500).json({ 
+        error: 'Error saving schema to database', 
+        details: dbError.message,
+        code: 'DB_ERROR'
+      });
+    }
   } catch (error) {
     logger.error('Error generating schema:', error);
     return res.status(500).json({ 

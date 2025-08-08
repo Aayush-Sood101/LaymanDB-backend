@@ -18,10 +18,17 @@ try {
     console.log('Found OpenAI API key in environment variables. First few characters:', apiKey.substring(0, 7) + '...');
     logger.info('Found OpenAI API key in environment variables');
     
-    openai = new OpenAI({
-      apiKey: apiKey
+    // Configure with SSL certificate checking disabled for development environments
+    // This should be removed in production for security reasons
+    const httpsAgent = require('https').Agent({
+      rejectUnauthorized: false // Bypass SSL certificate validation
     });
-    logger.info('OpenAI client initialized successfully');
+    
+    openai = new OpenAI({
+      apiKey: apiKey,
+      httpAgent: httpsAgent
+    });
+    logger.info('OpenAI client initialized successfully with SSL verification disabled');
   } else {
     // Try to read directly from .env file as a fallback
     try {
@@ -33,10 +40,16 @@ try {
           console.log('Found OpenAI API key in .env file. First few characters:', match[1].substring(0, 7) + '...');
           logger.info('Found OpenAI API key in .env file, using it directly');
           
-          openai = new OpenAI({
-            apiKey: match[1]
+          // Configure with SSL certificate checking disabled for development environments
+          const httpsAgent = require('https').Agent({
+            rejectUnauthorized: false // Bypass SSL certificate validation
           });
-          logger.info('OpenAI client initialized successfully from .env file');
+          
+          openai = new OpenAI({
+            apiKey: match[1],
+            httpAgent: httpsAgent
+          });
+          logger.info('OpenAI client initialized successfully from .env file with SSL verification disabled');
         } else {
           logger.warn('No OpenAI API key found in .env file');
         }

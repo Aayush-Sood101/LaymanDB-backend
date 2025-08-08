@@ -14,13 +14,18 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
+// Set higher timeout for server requests (2 minutes)
+server.timeout = 120000;
+
 // Initialize Socket.IO
 const io = socketIo(server, {
   cors: {
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     methods: ['GET', 'POST'],
     credentials: true
-  }
+  },
+  // Increase ping timeout to prevent premature disconnections
+  pingTimeout: 60000
 });
 
 // Middleware
@@ -30,6 +35,15 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Request timeout middleware
+app.use((req, res, next) => {
+  // Set default timeout for all requests to 30 seconds
+  req.setTimeout(30000, () => {
+    logger.warn(`Request timeout for ${req.method} ${req.url}`);
+  });
+  next();
+});
 
 // API Routes
 app.use('/api', apiRoutes);
@@ -55,7 +69,10 @@ io.on('connection', (socket) => {
 });
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/database-designer')
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/database-designer', {
+  serverSelectionTimeoutMS: 5000, // Timeout for server selection
+  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+})
   .then(() => {
     logger.info('Connected to MongoDB');
   })
@@ -72,6 +89,12 @@ server.listen(PORT, () => {
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
   logger.error('Unhandled Rejection:', err);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception:', err);
+  // In production, you might want to restart the process here
 });
 
 module.exports = { app, server, io };
