@@ -332,15 +332,47 @@ Array of objects with:
 - targetCardinality: cardinality of target (e.g., "1..1", "0..*")
 - sourceParticipation: "TOTAL" or "PARTIAL"
 - targetParticipation: "TOTAL" or "PARTIAL"
-- description: description of the relationship
-- attributes: array of relationship attributes (if any) with same structure as entity attributes
+- description: brief description of the relationship
+- attributes: array of relationship attributes (if relevant) with same structure as entity attributes
 - position: object with isDraggable set to true
+
+For a visually appealing and technically accurate ER diagram:
+
+1. Be thorough in identifying entities - analyze the requirements deeply to find hidden entities
+2. Create 8-12 entities for most systems (more for complex systems)
+3. For each entity, include 4-6 important attributes that capture essential properties
+4. Identify ALL relevant relationships between entities
+5. Include lookup/reference tables for enumerated values
+
+ENTITY DISCOVERY TECHNIQUES:
+- Identify nouns in the requirements that represent business objects
+- Look for collections of data or information that needs to be stored
+- Consider system actors (users, customers, administrators) as entities
+- Create lookup tables for status values, types, and categories
+- Consider historical data tracking needs (logs, history, archives)
+- Identify configuration and setting-related entities
+
+ATTRIBUTE DISCOVERY TECHNIQUES:
+- Add descriptive attributes (name, title, description)
+- Add categorical attributes (type, status, category)
+- Add quantitative attributes (count, amount, quantity)
+- Add temporal attributes (date, time, duration)
+- Add contact information when relevant (email, phone)
+- Add location/spatial information when appropriate
+
+RELATIONSHIP DISCOVERY TECHNIQUES:
+- Connect related entities with proper cardinality
+- Identify hierarchical relationships (parent-child)
+- Identify compositional relationships (part-of)
+- Identify transactional relationships (creates, processes)
+- Identify ownership/association relationships (belongs-to, has)
 
 ALWAYS include the following for EACH entity:
 1. A primary key attribute named 'id' with dataType 'INTEGER' if no natural primary key exists
 2. Standard timestamps: created_at and updated_at with dataType 'TIMESTAMP'
-3. Reasonable descriptions for each entity and attribute
+3. Concise descriptions for each entity and attribute
 4. Ensure all entities have properly configured attribute data types
+5. Include several business attributes that accurately represent the entity's purpose
 
 Ensure all relationships have meaningful names and correct cardinality settings. Foreign keys should be properly defined with clear reference to the target entity.`
         },

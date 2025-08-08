@@ -31,7 +31,11 @@ class MermaidGeneratorService {
     formatted = formatted.replace(/:\s*([^"\n]+)$/gm, ': "$1"');
     formatted = formatted.replace(/:\s*"([^"]*)"$/gm, ': "$1"'); // Normalize quoted labels
     
-    // 5. Ensure proper indentation of entity definitions
+    // 5. Fix cardinality syntax issues
+    formatted = formatted.replace(/\}o/g, '}o'); // Fix malformed cardinality
+    formatted = formatted.replace(/o\{/g, 'o{'); // Fix malformed cardinality
+    
+    // 6. Ensure proper indentation of entity definitions
     const lines = formatted.split('\n');
     for (let i = 0; i < lines.length; i++) {
       // Add proper indentation to entity definitions
@@ -159,20 +163,24 @@ class MermaidGeneratorService {
       });
     }
     
-    // Add primary key section if we have any
-    if (primaryKeys.length > 0) {
-      primaryKeys.forEach(({ column, dataType }) => {
-        entityDef += `        ${dataType} ${this.sanitizeName(column.name)} PK\n`;
+    // Always ensure there's at least one primary key (typically 'id')
+    if (primaryKeys.length === 0) {
+      primaryKeys.push({
+        column: { name: 'id' },
+        dataType: 'number'
       });
-      entityDef += '\n';
     }
+    
+    // Add primary key section if we have any
+    primaryKeys.forEach(({ column, dataType }) => {
+      entityDef += `        ${dataType} ${this.sanitizeName(column.name)} PK\n`;
+    });
     
     // Add foreign key section if we have any
     if (foreignKeys.length > 0) {
       foreignKeys.forEach(({ column, dataType }) => {
         entityDef += `        ${dataType} ${this.sanitizeName(column.name)} FK\n`;
       });
-      entityDef += '\n';
     }
     
     // Add regular attributes
@@ -241,6 +249,15 @@ class MermaidGeneratorService {
       }
     }
     
+    // Special handling for message conversations (bidirectional relationship)
+    if (relationshipName.toLowerCase().includes('message') && 
+        (sourceEntityLowerCase === 'user' && targetEntityLowerCase === 'message')) {
+      // Check if this is a receiver relationship
+      if (relationshipName.toLowerCase().includes('receive')) {
+        return `    ${sourceEntityLowerCase} ${sourceCardinality} -- ${targetCardinality} ${targetEntityLowerCase} : "${relationshipName}"\n`;
+      }
+    }
+    
     // Ensure proper spacing around the relationship operator
     // This is crucial for avoiding the "appendChild" rendering errors
     return `    ${sourceEntityLowerCase} ${sourceCardinality} -- ${targetCardinality} ${targetEntityLowerCase} : "${relationshipName}"\n`;
@@ -293,15 +310,18 @@ class MermaidGeneratorService {
     const lowerType = dataType.toLowerCase();
     
     if (lowerType.includes('int') || lowerType.includes('number') || lowerType.includes('decimal') || 
-        lowerType.includes('float') || lowerType.includes('double')) {
+        lowerType.includes('float') || lowerType.includes('double') || lowerType.includes('bigint') ||
+        lowerType.includes('smallint')) {
       return 'number';
     } else if (lowerType.includes('char') || lowerType.includes('text') || lowerType.includes('string') ||
-               lowerType.includes('uuid') || lowerType.includes('json')) {
+               lowerType.includes('uuid') || lowerType.includes('json') || lowerType.includes('varchar')) {
       return 'string';
-    } else if (lowerType.includes('date') || lowerType.includes('time')) {
+    } else if (lowerType.includes('date') || lowerType.includes('time') || lowerType.includes('timestamp')) {
       return 'date';
     } else if (lowerType.includes('bool')) {
       return 'boolean';
+    } else if (lowerType.includes('blob') || lowerType.includes('binary') || lowerType.includes('image')) {
+      return 'binary';
     } else {
       return 'string';  // Default to string for unknown types
     }
