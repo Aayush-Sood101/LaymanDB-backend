@@ -5,6 +5,121 @@ const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
 
+// Helper function to sanitize JSON content with common errors
+function sanitizeJSON(jsonString) {
+  try {
+    // If it's already valid JSON, return it as is
+    JSON.parse(jsonString);
+    return jsonString;
+  } catch (e) {
+    logger.info('Attempting to sanitize malformed JSON');
+    
+    // Make a copy to work with
+    let result = jsonString;
+    
+    // Remove any markdown code block indicators
+    result = result.replace(/```json/g, '').replace(/```/g, '');
+    
+    // Ensure the content starts and ends with curly braces
+    result = result.trim();
+    if (!result.startsWith('{')) {
+      const firstBrace = result.indexOf('{');
+      if (firstBrace >= 0) {
+        result = result.substring(firstBrace);
+      } else {
+        result = '{' + result;
+      }
+    }
+    
+    if (!result.endsWith('}')) {
+      const lastBrace = result.lastIndexOf('}');
+      if (lastBrace >= 0) {
+        result = result.substring(0, lastBrace + 1);
+      } else {
+        result = result + '}';
+      }
+    }
+    
+    // Fix unquoted property names
+    result = result.replace(/([{,]\s*)([a-zA-Z0-9_$]+)(\s*:)/g, '$1"$2"$3');
+    
+    // Fix trailing commas in objects and arrays
+    result = result.replace(/,(\s*[}\]])/g, '$1');
+    
+    // Fix missing quotes around string values
+    // This is trickier and might cause issues, so we're cautious
+    // result = result.replace(/:(\s*)([^{}\[\]"'\d,\s][^,\s}]*)/g, ':"$2"');
+    
+    // Replace single quotes with double quotes (careful with nested quotes)
+    result = result.replace(/:\s*'([^']*?)'/g, ':"$1"');
+    
+    // Handle any other specific issues found in the logs
+    
+    // Log the sanitized result
+    logger.info('JSON after sanitization (first 100 chars):', result.substring(0, 100) + '...');
+    
+    // Verify it's now valid
+    try {
+      JSON.parse(result);
+      logger.info('JSON sanitization successful');
+      return result;
+    } catch (parseError) {
+      logger.error('JSON sanitization failed:', parseError);
+      
+      // As a last resort, try to construct a minimal valid JSON
+      try {
+        // Extract entities and relationships using regex
+        const entitiesMatch = result.match(/"entities"\s*:\s*\[(.*?)\]/s);
+        const relationshipsMatch = result.match(/"relationships"\s*:\s*\[(.*?)\]/s);
+        
+        let fallbackJSON = '{';
+        if (entitiesMatch && entitiesMatch[1]) {
+          fallbackJSON += '"entities": ' + fixArrayJSON(entitiesMatch[1]);
+          if (relationshipsMatch && relationshipsMatch[1]) {
+            fallbackJSON += ', "relationships": ' + fixArrayJSON(relationshipsMatch[1]);
+          } else {
+            fallbackJSON += ', "relationships": []';
+          }
+        } else {
+          fallbackJSON += '"entities": [], "relationships": []';
+        }
+        fallbackJSON += '}';
+        
+        // Verify the fallback JSON
+        JSON.parse(fallbackJSON);
+        logger.info('Created fallback JSON structure');
+        return fallbackJSON;
+      } catch (fallbackError) {
+        // If all else fails, return a minimal valid JSON structure
+        logger.error('Fallback JSON creation failed:', fallbackError);
+        return '{"entities":[],"relationships":[]}';
+      }
+    }
+  }
+}
+
+// Helper to fix array JSON fragments
+function fixArrayJSON(arrayContent) {
+  try {
+    JSON.parse('[' + arrayContent + ']');
+    return '[' + arrayContent + ']';
+  } catch (e) {
+    // Simple fix for trailing commas
+    let content = arrayContent.trim();
+    if (content.endsWith(',')) {
+      content = content.slice(0, -1);
+    }
+    
+    try {
+      JSON.parse('[' + content + ']');
+      return '[' + content + ']';
+    } catch (e2) {
+      // Return empty array if we can't fix it
+      return '[]';
+    }
+  }
+}
+
 // Make sure environment variables are loaded
 dotenv.config();
 
@@ -21,12 +136,15 @@ try {
     // Configure with SSL certificate checking disabled for development environments
     // This should be removed in production for security reasons
     const httpsAgent = require('https').Agent({
-      rejectUnauthorized: false // Bypass SSL certificate validation
+      rejectUnauthorized: false, // Bypass SSL certificate validation
+      timeout: 90000 // 90 second timeout
     });
     
     openai = new OpenAI({
       apiKey: apiKey,
-      httpAgent: httpsAgent
+      httpAgent: httpsAgent,
+      timeout: 90000, // 90 second timeout
+      maxRetries: 3 // Allow 3 retries on failures
     });
     logger.info('OpenAI client initialized successfully with SSL verification disabled');
   } else {
@@ -42,12 +160,15 @@ try {
           
           // Configure with SSL certificate checking disabled for development environments
           const httpsAgent = require('https').Agent({
-            rejectUnauthorized: false // Bypass SSL certificate validation
+            rejectUnauthorized: false, // Bypass SSL certificate validation
+            timeout: 90000 // 90 second timeout
           });
           
           openai = new OpenAI({
             apiKey: match[1],
-            httpAgent: httpsAgent
+            httpAgent: httpsAgent,
+            timeout: 90000, // 90 second timeout
+            maxRetries: 3 // Allow 3 retries on failures
           });
           logger.info('OpenAI client initialized successfully from .env file with SSL verification disabled');
         } else {
@@ -87,7 +208,17 @@ exports.extractEntities = async (text) => {
     return result;
   } catch (error) {
     logger.error('Error extracting entities:', error);
-    throw new Error(`Failed to extract entities: ${error.message}`);
+    
+    // Handle different types of errors
+    if (error.message && error.message.includes('JSON')) {
+      throw new Error(`JSON parsing error: ${error.message}`);
+    } else if (error.cause && error.cause.code === 'CERT_HAS_EXPIRED') {
+      throw new Error('SSL certificate has expired. This is a development environment issue.');
+    } else if (error.message && error.message.includes('timeout')) {
+      throw new Error('Request timed out. The model is taking too long to generate a response.');
+    } else {
+      throw new Error(`Failed to extract entities: ${error.message}`);
+    }
   }
 };
 
@@ -233,8 +364,18 @@ Ensure all relationships have meaningful names and correct cardinality settings.
     }
     
     try {
-      // Parse the response to ensure it's valid JSON
-      const parsedResponse = JSON.parse(responseContent);
+      // Attempt to sanitize JSON before parsing
+      // First, check if the content starts and ends with curly braces
+      let sanitizedContent = responseContent.trim();
+      
+      // Log the raw response content for debugging (first 100 chars)
+      logger.info('Raw API response beginning:', sanitizedContent.substring(0, 100) + '...');
+      
+      // Try to fix common JSON syntax errors
+      sanitizedContent = sanitizeJSON(sanitizedContent);
+      
+      // Parse the sanitized response
+      const parsedResponse = JSON.parse(sanitizedContent);
       
       // Enhance relationship descriptions to ensure they display correctly
       if (parsedResponse.relationships && Array.isArray(parsedResponse.relationships)) {
@@ -285,10 +426,40 @@ Ensure all relationships have meaningful names and correct cardinality settings.
       return parsedResponse;
     } catch (parseError) {
       logger.error('Error parsing OpenAI response:', parseError);
+      
+      // Log the full response content for debugging
+      try {
+        // Save the problematic response to a special log file for debugging
+        const debugLogPath = path.join(__dirname, '../../logs/json-errors.log');
+        const debugContent = `
+--- ERROR LOG: ${new Date().toISOString()} ---
+ERROR: ${parseError.message}
+CONTENT:
+${responseContent}
+------------------------------------------
+`;
+        fs.appendFileSync(debugLogPath, debugContent);
+        logger.info('Saved problematic JSON response to json-errors.log');
+      } catch (logError) {
+        logger.error('Failed to save debug log:', logError);
+      }
+      
       throw parseError;
     }
   } catch (error) {
     logger.error('OpenAI API error:', error);
+    
+    // Enhance error message based on error type
+    if (error.cause) {
+      if (error.cause.code === 'CERT_HAS_EXPIRED') {
+        error.message = 'SSL certificate error with OpenAI API. This is a development environment issue.';
+      } else if (error.cause.code === 'ETIMEDOUT' || error.cause.code === 'ESOCKETTIMEDOUT') {
+        error.message = 'Request to OpenAI API timed out. Try again with a simpler prompt.';
+      } else if (error.cause.code === 'ECONNRESET') {
+        error.message = 'Connection to OpenAI API was reset. The server might be overloaded.';
+      }
+    }
+    
     throw error;
   }
 }

@@ -14,8 +14,8 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-// Set higher timeout for server requests (2 minutes)
-server.timeout = 120000;
+// Set higher timeout for server requests (3 minutes)
+server.timeout = 180000;
 
 // Initialize Socket.IO
 const io = socketIo(server, {
@@ -25,7 +25,8 @@ const io = socketIo(server, {
     credentials: true
   },
   // Increase ping timeout to prevent premature disconnections
-  pingTimeout: 60000
+  pingTimeout: 90000,
+  connectTimeout: 90000
 });
 
 // Middleware
@@ -38,8 +39,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request timeout middleware
 app.use((req, res, next) => {
-  // Set default timeout for all requests to 30 seconds
-  req.setTimeout(30000, () => {
+  // Set default timeout for all requests to 90 seconds
+  req.setTimeout(90000, () => {
     logger.warn(`Request timeout for ${req.method} ${req.url}`);
   });
   next();
@@ -70,8 +71,8 @@ io.on('connection', (socket) => {
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/database-designer', {
-  serverSelectionTimeoutMS: 5000, // Timeout for server selection
-  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+  serverSelectionTimeoutMS: 10000, // Timeout for server selection
+  socketTimeoutMS: 90000, // Close sockets after 90 seconds of inactivity
 })
   .then(() => {
     logger.info('Connected to MongoDB');

@@ -18,8 +18,8 @@ exports.generateSchema = async (req, res) => {
 
     logger.info('Generating schema from prompt', { prompt });
 
-    // Set a longer timeout for the request (30 seconds)
-    req.setTimeout(30000);
+    // Set a longer timeout for the request (90 seconds)
+    req.setTimeout(90000);
     
     // Process natural language using NLP service
     let extractedEntities;
@@ -27,10 +27,29 @@ exports.generateSchema = async (req, res) => {
       extractedEntities = await nlpService.extractEntities(prompt);
     } catch (nlpError) {
       logger.error('NLP service error:', nlpError);
+      
+      // Provide a specific message for JSON parsing errors
+      let errorMessage = nlpError.message || 'Error in AI processing';
+      let errorCode = 'NLP_ERROR';
+      
+      if (nlpError.message && (
+          nlpError.message.includes('JSON') || 
+          nlpError.message.includes('Unexpected') || 
+          nlpError.message.includes('token') || 
+          nlpError.message.includes('position') ||
+          nlpError.message.includes('parse')
+        )) {
+        errorMessage = 'The AI response contained invalid JSON. Please try again with a simpler prompt.';
+        errorCode = 'JSON_PARSE_ERROR';
+      } else if (nlpError.message && nlpError.message.includes('timeout')) {
+        errorMessage = 'The request timed out. Please try again with a simpler prompt.';
+        errorCode = 'TIMEOUT_ERROR';
+      }
+      
       return res.status(500).json({ 
-        error: 'Error in AI processing', 
+        error: errorMessage, 
         details: nlpError.message,
-        code: 'NLP_ERROR'
+        code: errorCode
       });
     }
     
