@@ -21,6 +21,7 @@ exports.generateSchema = async (extractedData, options = {}) => {
       name: transformTableName(entity.name),
       columns: generateColumnsFromAttributes(entity.attributes || []),
       description: entity.description || `Table for ${entity.name}`,
+      isWeakEntity: entity.isWeakEntity === true,
       position: {
         x: 100 + (index % 3) * 350,
         y: 100 + Math.floor(index / 3) * 250
@@ -216,6 +217,7 @@ function transformRelationship(relationship, tables) {
     sourceColumn: sourceColumn.name,
     targetColumn: relationship.type === 'ONE_TO_MANY' ? `${sourceTable.name.toLowerCase()}_id` : targetColumn.name,
     type: relationship.type,
+    isIdentifying: relationship.isIdentifying === true,
     description: relationship.description || `Relationship between ${sourceTable.name} and ${targetTable.name}`,
     // Preserve cardinality and participation information
     sourceCardinality: relationship.sourceCardinality || null,

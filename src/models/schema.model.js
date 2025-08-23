@@ -34,6 +34,7 @@ const TableSchema = new mongoose.Schema({
   name: { type: String, required: true },
   columns: [ColumnSchema],
   description: { type: String },
+  isWeakEntity: { type: Boolean, default: false },
   position: {
     x: { type: Number, default: 0 },
     y: { type: Number, default: 0 }
@@ -54,6 +55,7 @@ const RelationshipSchema = new mongoose.Schema({
     enum: ['ONE_TO_ONE', 'ONE_TO_MANY', 'MANY_TO_ONE', 'MANY_TO_MANY'], 
     required: true 
   },
+  isIdentifying: { type: Boolean, default: false },
   attributes: [AttributeSchema],
   sourceCardinality: { type: String },
   targetCardinality: { type: String },

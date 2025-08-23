@@ -249,7 +249,7 @@ async function processWithAI(text) {
 
 ### ENTITIES
 - **Strong Entities**: Independent existence (Customer, Product)
-- **Weak Entities**: Existence depends on another entity (Order Line depends on Order)
+- **Weak Entities**: Existence depends on another entity (Order Line depends on Order). Weak entities must be identified by setting "isWeakEntity": true
 - **Lookup/Reference Entities**: Normalize attributes with fixed sets of values (Status, PaymentMethod)
 
 ### ATTRIBUTES
@@ -287,6 +287,10 @@ async function processWithAI(text) {
 - **Use Present Tense**: "orders" not "ordered"
 - **Be Specific**: "teaches" is better than "has" or "associated with"
 
+### RELATIONSHIP CLASSIFICATION
+- **Identifying Relationship**: Links a weak entity to its owner (strong entity). Must be specified by setting "isIdentifying": true
+- **Non-Identifying Relationship**: Regular relationship between two entities
+
 ### CARDINALITY PATTERNS
 - **One-to-One (1:1)**: Each entity relates to exactly one other (type: ONE_TO_ONE)
 - **One-to-Many (1:N)**: One entity relates to multiple others (type: ONE_TO_MANY)
@@ -311,6 +315,7 @@ Format the output as a detailed JSON object with these EXACT properties:
 Array of objects with:
 - name: entity name (PascalCase or camelCase)
 - description: brief description of what this entity represents
+- isWeakEntity: boolean (true/false) indicating if this is a weak entity that depends on another entity for identification
 - attributes: array of objects with:
   - name: attribute name (camelCase)
   - dataType: SQL data type (VARCHAR(255), INTEGER, DECIMAL(10,2), TIMESTAMP, BOOLEAN, TEXT)
@@ -328,6 +333,7 @@ Array of objects with:
 - sourceEntity: name of the source entity
 - targetEntity: name of the target entity
 - type: one of "ONE_TO_ONE", "ONE_TO_MANY", "MANY_TO_ONE", "MANY_TO_MANY"
+- isIdentifying: boolean (true/false) indicating if this is an identifying relationship for a weak entity
 - sourceCardinality: cardinality of source (e.g., "1..1", "0..*")
 - targetCardinality: cardinality of target (e.g., "1..1", "0..*")
 - sourceParticipation: "TOTAL" or "PARTIAL"
