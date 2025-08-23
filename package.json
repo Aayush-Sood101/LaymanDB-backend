@@ -19,6 +19,7 @@
     "mongoose": "^8.0.0",
     "natural": "^6.10.0",
     "openai": "^4.35.0",
+    "react-markdown": "^10.1.0",
     "redis": "^4.6.12",
     "socket.io": "^4.7.4",
     "sql-formatter": "^15.6.6",
