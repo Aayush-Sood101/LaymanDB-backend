@@ -56,7 +56,7 @@ exports.generateSQL = async (req, res) => {
  */
 exports.exportERD = async (req, res) => {
   try {
-    const { schemaId, format = 'svg' } = req.body;
+    const { schemaId, format = 'svg', diagramData } = req.body;
     
     if (!schemaId) {
       return res.status(400).json({ error: 'Schema ID is required' });
@@ -68,7 +68,7 @@ exports.exportERD = async (req, res) => {
       return res.status(404).json({ error: 'Schema not found' });
     }
     
-    const supportedFormats = ['svg', 'png', 'pdf', 'json'];
+    const supportedFormats = ['svg', 'png'];
     
     if (!supportedFormats.includes(format.toLowerCase())) {
       return res.status(400).json({ 
@@ -77,12 +77,21 @@ exports.exportERD = async (req, res) => {
       });
     }
     
-    // For now, just return the schema in JSON format
-    // In a real implementation, this would generate actual diagram files
-    return res.status(200).json({
-      message: `ERD exported as ${format} successfully`,
-      format,
-      schema
+    // If diagram data is provided (from frontend), use it
+    if (diagramData) {
+      logger.info(`Received diagram data for export in ${format} format`);
+      
+      return res.status(200).json({
+        message: `ERD exported as ${format} successfully`,
+        format,
+        diagramData
+      });
+    }
+    
+    // If no diagram data is provided, return an error
+    return res.status(400).json({
+      error: 'Diagram data is required for export',
+      details: 'The current diagram state must be provided to export the diagram'
     });
   } catch (error) {
     logger.error('Error exporting ERD:', error);
