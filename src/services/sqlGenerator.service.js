@@ -110,13 +110,26 @@ exports.generateSQL = async (schema, dialect = 'mysql') => {
     }
     
     // Format the SQL for readability
-    const sql = format(statements.join('\n\n'), { 
-      language: dialect,
-      keywordCase: 'upper',
-      indentStyle: 'standard',
-      logicalOperatorNewline: 'before',
-      expressionWidth: 80
-    });
+    // Map sqlserver dialect to tsql for the formatter
+    const formatterDialect = dialect.toLowerCase() === 'sqlserver' ? 'tsql' : dialect;
+    
+    // Join statements and format the SQL
+    const joinedSql = statements.join('\n\n');
+    let sql;
+    
+    try {
+      sql = format(joinedSql, { 
+        language: formatterDialect,
+        keywordCase: 'upper',
+        indentStyle: 'standard',
+        logicalOperatorNewline: 'before',
+        expressionWidth: 80
+      });
+    } catch (formatError) {
+      logger.warn(`SQL formatting failed for dialect ${dialect}, returning unformatted SQL: ${formatError.message}`);
+      // Return the unformatted SQL if formatting fails
+      sql = joinedSql;
+    }
     
     logger.info(`SQL generation complete for schema: ${schema.name}`);
     
