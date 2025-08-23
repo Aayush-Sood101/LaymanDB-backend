@@ -194,3 +194,54 @@ exports.getTemplates = async (req, res) => {
     });
   }
 };
+
+/**
+ * Optimize a user prompt using AI to make it more effective for schema generation
+ * @param {Object} req - Express request object with original prompt
+ * @param {Object} res - Express response object
+ */
+exports.optimizePrompt = async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    logger.info('Optimizing prompt with AI', { prompt });
+
+    // Set a longer timeout for the request
+    req.setTimeout(30000);
+    
+    // Process prompt optimization using NLP service
+    try {
+      const optimizedPrompt = await nlpService.optimizePrompt(prompt);
+      return res.status(200).json({ 
+        message: 'Prompt optimized successfully', 
+        optimizedPrompt 
+      });
+    } catch (nlpError) {
+      logger.error('Prompt optimization error:', nlpError);
+      
+      let errorMessage = nlpError.message || 'Error in AI processing';
+      let errorCode = 'OPTIMIZATION_ERROR';
+      
+      if (nlpError.message && nlpError.message.includes('timeout')) {
+        errorMessage = 'The request timed out. Please try again with a simpler prompt.';
+        errorCode = 'TIMEOUT_ERROR';
+      }
+      
+      return res.status(500).json({ 
+        error: errorMessage, 
+        details: nlpError.message,
+        code: errorCode
+      });
+    }
+  } catch (error) {
+    logger.error('Error optimizing prompt:', error);
+    return res.status(500).json({ 
+      error: 'Failed to optimize prompt', 
+      details: error.message 
+    });
+  }
+};

@@ -502,4 +502,80 @@ ${responseContent}
   }
 }
 
+/**
+ * Optimize a user prompt to make it more effective for schema generation
+ * @param {string} text - Original natural language prompt
+ * @returns {string} - Optimized prompt for better schema generation
+ */
+exports.optimizePrompt = async (text) => {
+  try {
+    if (!openai) {
+      throw new Error('OpenAI client is not initialized. Please check your API key configuration.');
+    }
+
+    logger.info('Using OpenAI for prompt optimization');
+    
+    // Use a cost-efficient model
+    const model = "gpt-3.5-turbo-0125"; // Using the most efficient version of gpt-3.5-turbo
+    
+    const response = await openai.chat.completions.create({
+      model: model,
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert database design assistant specializing in ERD (Entity-Relationship Diagram) creation. Your task is to refine user prompts to make them more effective for database schema generation.
+
+When refining a user's prompt:
+1. Ensure all entities (tables) are clearly identified with PascalCase naming (e.g., Product, Customer)
+2. Make sure relationships between entities are explicitly stated with their cardinality (one-to-many, many-to-many, etc.)
+3. Specify important attributes for each entity including data types, primary keys, and foreign keys
+4. Include any business rules or constraints that should be reflected in the schema
+5. Add missing information that would be typical for the domain
+6. Remove any irrelevant information that might confuse the schema generation
+7. Format the output as a clear, structured description focusing solely on database structure
+
+SPECIAL CASES:
+- If the user is asking for an example or sample ("CREATE AN ERD DIAGRAM", "CREATE SAMPLE", "GIVE EXAMPLE"), provide a complete and detailed e-commerce database example with:
+  * Customers (id, name, email, address, phone, registration_date)
+  * Products (id, name, description, price, stock_quantity, category_id)
+  * Categories (id, name, description)
+  * Orders (id, customer_id, order_date, total_amount, status)
+  * OrderItems (id, order_id, product_id, quantity, unit_price)
+  * Payments (id, order_id, payment_date, payment_method, amount)
+  * Reviews (id, product_id, customer_id, rating, comment, review_date)
+
+Your goal is to optimize the user's input to reduce ambiguity and produce the most accurate database schema. Be thorough but concise. Never drastically change the user's intent or domain - only enhance what they've provided.`
+        },
+        {
+          role: "user",
+          content: `Please optimize this database design prompt to make it clearer and more specific for schema generation: "${text}"`
+        }
+      ]
+    });
+    
+    logger.info('OpenAI API response received for prompt optimization');
+    
+    if (!response.choices || response.choices.length === 0) {
+      throw new Error('No choices returned from OpenAI API');
+    }
+    
+    const optimizedPrompt = response.choices[0].message.content;
+    if (!optimizedPrompt) {
+      throw new Error('Empty response content from OpenAI API');
+    }
+    
+    // Log the optimized prompt
+    logger.info('Prompt optimization successful');
+    openaiResponseLogger.info('Prompt optimization:', { 
+      original: text,
+      optimized: optimizedPrompt
+    });
+    
+    return optimizedPrompt;
+  } catch (error) {
+    logger.error('Error optimizing prompt:', error);
+    throw error;
+  }
+}
+
 module.exports = exports;

@@ -10,6 +10,20 @@ const schemaController = require('../controllers/schema.controller');
 router.post('/generate', schemaController.generateSchema);
 
 /**
+ * @route POST /api/schema/optimize-prompt
+ * @description Optimize a user prompt to make it more effective for schema generation
+ * @access Public
+ */
+router.post('/optimize-prompt', schemaController.optimizePrompt);
+
+/**
+ * @route GET /api/schema/templates
+ * @description Get available schema templates
+ * @access Public
+ */
+router.get('/templates', schemaController.getTemplates);
+
+/**
  * @route GET /api/schema/:id
  * @description Get a specific schema by ID
  * @access Public
@@ -22,12 +36,5 @@ router.get('/:id', schemaController.getSchemaById);
  * @access Public
  */
 router.put('/:id', schemaController.updateSchema);
-
-/**
- * @route GET /api/schema/templates
- * @description Get available schema templates
- * @access Public
- */
-router.get('/templates', schemaController.getTemplates);
 
 module.exports = router;
