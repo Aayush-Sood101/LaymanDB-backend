@@ -345,8 +345,8 @@ Array of objects with:
 For a visually appealing and technically accurate ER diagram:
 
 1. Be thorough in identifying entities - analyze the requirements deeply to find hidden entities
-2. Create 8-12 entities for most systems (more for complex systems)
-3. For each entity, include 4-6 important attributes that capture essential properties
+2. Create 5-10 entities for most systems (more for complex systems)
+3. For each entity, include 3-5 important attributes that capture essential properties
 4. Identify ALL relevant relationships between entities
 5. Include lookup/reference tables for enumerated values
 
