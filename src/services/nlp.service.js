@@ -282,10 +282,11 @@ async function processWithAI(text) {
 ## 2. RELATIONSHIP TYPES
 
 ### RELATIONSHIP NAMING
-- **Use Verb Phrases**: "places", "manages", "contains", "belongs to"
-- **Direction Matters**: "employs" vs "works for" depending on perspective
-- **Use Present Tense**: "orders" not "ordered"
-- **Be Specific**: "teaches" is better than "has" or "associated with"
+- **Use Descriptive Verb Phrases**: Extract from relationship descriptions - "places orders" → "places", "manages projects" → "manages"
+- **Direction Matters**: "employs" vs "works for" depending on perspective - be consistent with source→target direction
+- **Use Present Tense**: "orders" not "ordered" 
+- **Be Specific**: "teaches" is better than generic "has" or "associated with"
+- **Derive Names From Descriptions**: Always extract the key action verb from relationship descriptions
 
 ### RELATIONSHIP CLASSIFICATION
 - **Identifying Relationship**: Links a weak entity to its owner (strong entity). Must be specified by setting "isIdentifying": true
@@ -329,7 +330,7 @@ Array of objects with:
 
 ### relationships
 Array of objects with:
-- name: relationship name (verb or action phrase)
+- name: relationship name (specific and descriptive verb or action phrase extracted from the description)
 - sourceEntity: name of the source entity
 - targetEntity: name of the target entity
 - type: one of "ONE_TO_ONE", "ONE_TO_MANY", "MANY_TO_ONE", "MANY_TO_MANY"
@@ -368,10 +369,11 @@ ATTRIBUTE DISCOVERY TECHNIQUES:
 
 RELATIONSHIP DISCOVERY TECHNIQUES:
 - Connect related entities with proper cardinality
-- Identify hierarchical relationships (parent-child)
-- Identify compositional relationships (part-of)
-- Identify transactional relationships (creates, processes)
-- Identify ownership/association relationships (belongs-to, has)
+- Identify hierarchical relationships (parent-child) → name as "isParentOf"/"isChildOf"
+- Identify compositional relationships (part-of) → name as "contains"/"isPartOf"
+- Identify transactional relationships (creates, processes) → use the exact action verb
+- Identify ownership/association relationships → name as "owns"/"belongsTo" not just "has"
+- ALWAYS extract a meaningful verb from the relationship description for the relationship name
 
 ALWAYS include the following for EACH entity:
 1. A primary key attribute named 'id' with dataType 'INTEGER' if no natural primary key exists
@@ -421,7 +423,56 @@ Ensure all relationships have meaningful names and correct cardinality settings.
           // Make sure the description is human-readable and properly formatted
           if (relationship.description) {
             relationship.description = relationship.description.trim();
+            
+            // If relationship name is missing or generic, extract from description
+            if (!relationship.name || ['has', 'relates_to', 'relates', 'belongs_to', 'associated_with'].includes(relationship.name.toLowerCase())) {
+              // Extract a meaningful name from the description
+              const description = relationship.description.toLowerCase();
+              
+              // Common patterns to extract verbs from descriptions
+              const verbPatterns = [
+                /can ([a-z]+) /i,                  // "can place", "can have"
+                /([a-z]+)s to /i,                  // "belongs to"
+                /is ([a-z]+)d? by/i,               // "is owned by", "is managed by"
+                /([a-z]+)s multiple/i,             // "contains multiple"
+                /([a-z]+)s many/i,                 // "has many"
+                /([a-z]+)s the/i,                  // "processes the"
+                /([a-z]+)s to/i                    // "relates to"
+              ];
+              
+              // Try each pattern to extract a verb
+              let extractedVerb = null;
+              for (const pattern of verbPatterns) {
+                const match = description.match(pattern);
+                if (match && match[1]) {
+                  extractedVerb = match[1];
+                  break;
+                }
+              }
+              
+              // If a verb was found, use it as the relationship name
+              if (extractedVerb && extractedVerb.length > 2) {
+                relationship.name = extractedVerb;
+              } else if (description.includes('belong')) {
+                relationship.name = 'belongsTo';
+              } else if (description.includes('contain')) {
+                relationship.name = 'contains';
+              } else if (description.includes('own')) {
+                relationship.name = 'owns';
+              } else if (description.includes('place')) {
+                relationship.name = 'places';
+              } else if (description.includes('manage')) {
+                relationship.name = 'manages';
+              } else if (relationship.type === 'MANY_TO_MANY') {
+                relationship.name = 'participatesIn';
+              } else if (relationship.type === 'ONE_TO_MANY') {
+                relationship.name = 'has';
+              } else {
+                relationship.name = 'relatesTo';
+              }
+            }
           }
+          
           // Ensure all components in the diagram are draggable by adding position property if missing
           if (!relationship.position) {
             relationship.position = { isDraggable: true };
@@ -560,6 +611,7 @@ REFINING GUIDELINES:
 8. Explicitly mark WEAK ENTITIES next to the entity name
 9. Explicitly mark IDENTIFYING RELATIONSHIPS with the [IDENTIFYING] tag
 10. List important business rules as constraints
+11. CRITICAL: Use DESCRIPTIVE and SPECIFIC relationship names based on the relationship description provided in quotes
 
 WEAK ENTITY AND IDENTIFYING RELATIONSHIP GUIDELINES:
 - A weak entity is an entity that cannot be uniquely identified by its attributes alone and depends on another entity
@@ -567,6 +619,7 @@ WEAK ENTITY AND IDENTIFYING RELATIONSHIP GUIDELINES:
 - An identifying relationship is a relationship between a weak entity and its owner (strong entity)
 - Mark any relationship as [IDENTIFYING] if it connects a weak entity to its owner entity
 - Weak entities typically have partial keys (discriminators) rather than full primary keys
+- Example: "Product (1) to ProductVariant (many): 'A product has multiple variants'" should be named "hasVariants" not just "has"
 
 For example, given "Design a system for a library with books and members":
 
@@ -604,9 +657,9 @@ For example, given "Design a system for a library with books and members":
   * location (VARCHAR(100))
 
 ## RELATIONSHIPS
-- Member (1) to Borrowing (many): "A member can borrow multiple books"
-- Book (1) to Borrowing (many): "A book can be borrowed multiple times (sequentially)"
-- Book (1) to BookCopy (many): "A book can have multiple physical copies" [IDENTIFYING]
+- Member (1) to Borrowing (many): "A member can borrow multiple books" → NAMED "borrows"
+- Book (1) to Borrowing (many): "A book can be borrowed multiple times (sequentially)" → NAMED "isSubjectOf"
+- Book (1) to BookCopy (many): "A book can have multiple physical copies" [IDENTIFYING] → NAMED "hasPhysicalCopies"
 
 ## CONSTRAINTS
 - A book copy cannot be borrowed if it's already checked out
