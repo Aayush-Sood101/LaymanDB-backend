@@ -66,7 +66,7 @@ exports.generateSchema = async (req, res) => {
       });
     }
     
-    // Save schema to database
+    // Save schema to memory
     try {
       const newSchema = new Schema(schema);
       await newSchema.save();
@@ -76,11 +76,11 @@ exports.generateSchema = async (req, res) => {
         schema: newSchema 
       });
     } catch (dbError) {
-      logger.error('Database error saving schema:', dbError);
+      logger.error('Error saving schema:', dbError);
       return res.status(500).json({ 
-        error: 'Error saving schema to database', 
+        error: 'Error saving schema', 
         details: dbError.message,
-        code: 'DB_ERROR'
+        code: 'SAVE_ERROR'
       });
     }
   } catch (error) {
@@ -131,14 +131,13 @@ exports.updateSchema = async (req, res) => {
       return res.status(404).json({ error: 'Schema not found' });
     }
     
-    // Increment version number
-    updates.version = schema.version + 1;
+    // Update timestamp
     updates.updatedAt = new Date();
     
     const updatedSchema = await Schema.findByIdAndUpdate(
       id,
       updates,
-      { new: true, runValidators: true }
+      { new: true }
     );
     
     return res.status(200).json({ 

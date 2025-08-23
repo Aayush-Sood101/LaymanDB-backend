@@ -17,13 +17,6 @@ router.post('/create', sessionController.createSession);
 router.get('/:id', sessionController.getSessionById);
 
 /**
- * @route GET /api/session/:id/history
- * @description Get version history for a session
- * @access Public
- */
-router.get('/:id/history', sessionController.getSessionHistory);
-
-/**
  * @route POST /api/session/:id/save
  * @description Save the current state of a session
  * @access Public

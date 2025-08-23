@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
-const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const logger = require('./utils/logger');
 const apiRoutes = require('./routes');
@@ -68,18 +67,6 @@ io.on('connection', (socket) => {
     logger.info(`Client disconnected: ${socket.id}`);
   });
 });
-
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/database-designer', {
-  serverSelectionTimeoutMS: 10000, // Timeout for server selection
-  socketTimeoutMS: 90000, // Close sockets after 90 seconds of inactivity
-})
-  .then(() => {
-    logger.info('Connected to MongoDB');
-  })
-  .catch((err) => {
-    logger.error('MongoDB connection error:', err);
-  });
 
 // Start the server
 const PORT = process.env.PORT || 4000;
