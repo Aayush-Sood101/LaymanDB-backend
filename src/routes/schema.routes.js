@@ -17,6 +17,13 @@ router.post('/generate', schemaController.generateSchema);
 router.post('/optimize-prompt', schemaController.optimizePrompt);
 
 /**
+ * @route POST /api/schema/enhance-prompt
+ * @description Enhance a user prompt by adding more detail while preserving original intent
+ * @access Public
+ */
+router.post('/enhance-prompt', schemaController.enhancePrompt);
+
+/**
  * @route GET /api/schema/templates
  * @description Get available schema templates
  * @access Public

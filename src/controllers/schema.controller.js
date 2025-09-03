@@ -1,5 +1,6 @@
 const Schema = require('../models/schema.model');
 const nlpService = require('../services/nlp.service');
+const promptEnhancerService = require('../services/promptEnhancer.service');
 const schemaGeneratorService = require('../services/schemaGenerator.service');
 const logger = require('../utils/logger');
 
@@ -240,6 +241,57 @@ exports.optimizePrompt = async (req, res) => {
     logger.error('Error optimizing prompt:', error);
     return res.status(500).json({ 
       error: 'Failed to optimize prompt', 
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Enhance a user prompt by adding more detail while preserving original intent
+ * @param {Object} req - Express request object with original prompt
+ * @param {Object} res - Express response object
+ */
+exports.enhancePrompt = async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    logger.info('Enhancing prompt with AI', { prompt });
+
+    // Set a reasonable timeout for the request
+    req.setTimeout(30000);
+    
+    // Process prompt enhancement using promptEnhancer service
+    try {
+      const enhancedPrompt = await promptEnhancerService.enhancePrompt(prompt);
+      return res.status(200).json({ 
+        message: 'Prompt enhanced successfully', 
+        enhancedPrompt 
+      });
+    } catch (enhancerError) {
+      logger.error('Prompt enhancement error:', enhancerError);
+      
+      let errorMessage = enhancerError.message || 'Error in AI processing';
+      let errorCode = 'ENHANCEMENT_ERROR';
+      
+      if (enhancerError.message && enhancerError.message.includes('timeout')) {
+        errorMessage = 'The request timed out. Please try again with a simpler prompt.';
+        errorCode = 'TIMEOUT_ERROR';
+      }
+      
+      return res.status(500).json({ 
+        error: errorMessage, 
+        details: enhancerError.message,
+        code: errorCode
+      });
+    }
+  } catch (error) {
+    logger.error('Error enhancing prompt:', error);
+    return res.status(500).json({ 
+      error: 'Failed to enhance prompt', 
       details: error.message 
     });
   }
