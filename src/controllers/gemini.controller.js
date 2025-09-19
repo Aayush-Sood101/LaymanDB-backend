@@ -5,50 +5,65 @@
 const geminiService = require('../services/geminiService');
 const logger = require('../utils/logger');
 
+const MIN_INPUT_LENGTH = 10;
+
 /**
- * Generate an ER diagram using Gemini model
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * Handles the request to generate an ER diagram using the Gemini service.
+ * @param {import('express').Request} req - Express request object
+ * @param {import('express').Response} res - Express response object
  */
 const generateERDiagram = async (req, res) => {
   try {
     const { input } = req.body;
-    
-    if (!input || typeof input !== 'string' || input.trim().length === 0) {
+
+    // More robust input validation
+    if (!input || typeof input !== 'string' || input.trim().length < MIN_INPUT_LENGTH) {
       logger.warn('Invalid input for Gemini ER diagram generation', { input });
       return res.status(400).json({
         success: false,
-        error: 'Please provide a valid text description of the database schema.'
+        error: `Please provide a text description of at least ${MIN_INPUT_LENGTH} characters.`,
       });
     }
-    
-    logger.info('Received request to generate ER diagram using Gemini', { inputLength: input.length });
-    
+
+    // Check if the service is ready before making a call
+    if (!geminiService.isInitialized()) {
+        logger.error('Gemini service not initialized. Cannot process request.');
+        return res.status(503).json({ // 503 Service Unavailable
+            success: false,
+            error: 'The diagram generation service is temporarily unavailable. Please try again later.'
+        });
+    }
+
+    logger.info('Received request to generate ER diagram', { inputLength: input.length });
+
     const result = await geminiService.generateERDiagram(input);
-    
+
     if (!result.success) {
-      logger.error('Failed to generate ER diagram using Gemini', { error: result.error });
+      // The service now provides client-safe error messages.
+      logger.error('Failed to generate ER diagram', { error: result.error });
+      // Use 500 for internal server errors
       return res.status(500).json({
         success: false,
-        error: result.error || 'Failed to generate ER diagram.'
+        error: result.error,
       });
     }
-    
-    logger.info('Successfully generated ER diagram using Gemini');
-    
+
+    logger.info('Successfully generated and returned ER diagram');
+
     return res.status(200).json({
       success: true,
-      mermaidCode: result.mermaidCode
+      mermaidCode: result.mermaidCode,
     });
   } catch (error) {
-    logger.error('Error in generateERDiagram controller', { error: error.message });
+    // This is a catch-all for unexpected server errors (e.g., programming errors in this file).
+    logger.error('Unhandled error in generateERDiagram controller', { error: error.message, stack: error.stack });
     return res.status(500).json({
       success: false,
-      error: 'An unexpected error occurred while generating the ER diagram.'
+      error: 'An unexpected server error occurred.',
     });
   }
 };
 
 module.exports = {
-  generateERDiagram
+  generateERDiagram,
 };
