@@ -15,27 +15,7 @@ class GeminiService {
 
     // Create a simpler prompt for Mermaid diagram generation
     this.systemPrompt = 
-      "You are a database designer who creates ER diagrams using Mermaid syntax. " +
-      "Given a description, create a simple, valid Mermaid ER diagram. " +
-      "ONLY output the diagram code. " +
-      "Start with 'erDiagram'. " +
-      "Use correct table attributes with PK for primary keys and FK for foreign keys. " +
-      "Use proper cardinality notation (||--||, ||--o{, etc). " +
-      "Use these data types: string, number, date, boolean. " +
-      "Example output format:\n" +
-      "erDiagram\n" +
-      "    USER {\n" +
-      "        string id PK\n" +
-      "        string name\n" +
-      "        string email\n" +
-      "    }\n" +
-      "    POST {\n" +
-      "        string id PK\n" +
-      "        string user_id FK\n" +
-      "        string title\n" +
-      "        string content\n" +
-      "    }\n" +
-      "    USER ||--o{ POST : creates";
+      "Create a valid Mermaid ER diagram from this database description. Output only the diagram code starting with 'erDiagram'. Use PK for primary keys, FK for foreign keys, and proper cardinality notation. Use data types: string, number, date, boolean.";
 
     this.initialize();
   }
@@ -94,13 +74,22 @@ class GeminiService {
     try {
       logger.info('Generating ER diagram with Gemini', { inputLength: textInput.length });
 
-      const fullPrompt = `${this.systemPrompt}\n\n---\n\nGenerate a diagram for the following description:\n\n${textInput}`;
-
-      const result = await this.model.generateContent(fullPrompt, {
+      // Create the messages array with user content (not using system prompt as direct text)
+      const result = await this.model.generateContent({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text: `${this.systemPrompt}\n\n---\n\nGenerate a diagram for the following description:\n\n${textInput}`
+              }
+            ]
+          }
+        ],
         generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 4096,
-            responseMimeType: 'text/plain',
+          temperature: 0.1,
+          maxOutputTokens: 4096,
+          responseMimeType: 'text/plain',
         }
       });
 
