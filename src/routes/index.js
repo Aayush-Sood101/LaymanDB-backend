@@ -7,6 +7,7 @@ const exportRoutes = require('./export.routes');
 const geminiRoutes = require('./gemini.routes');
 const geminiPromptRoutes = require('./gemini.prompt.routes');
 const queryRoutes = require('./query.routes');
+const mermaidQueryRoutes = require('./mermaidQuery.routes');
 
 // Mount route modules
 router.use('/schema', schemaRoutes);
@@ -15,5 +16,6 @@ router.use('/export', exportRoutes);
 router.use('/gemini', geminiRoutes);
 router.use('/gemini/prompt', geminiPromptRoutes);
 router.use('/query', queryRoutes);
+router.use('/mermaid-query', mermaidQueryRoutes);
 
 module.exports = router;
